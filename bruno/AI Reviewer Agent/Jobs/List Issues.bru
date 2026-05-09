@@ -1,0 +1,22 @@
+meta {
+  name: List Issues
+  type: http
+  seq: 5
+}
+
+get {
+  url: {{base_url}}/api/jobs/{{job_id}}/issues
+  body: none
+  auth: none
+}
+
+headers {
+  x-request-id: req_bruno_list_issues
+}
+
+script:post-response {
+  const items = res.body && res.body.data && res.body.data.items;
+  if (items && items.length > 0 && items[0].issue_id) {
+    bru.setEnvVar("issue_id", items[0].issue_id);
+  }
+}

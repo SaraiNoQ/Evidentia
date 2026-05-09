@@ -1,0 +1,15 @@
+meta {
+  name: Get Job Status
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{base_url}}/api/jobs/{{job_id}}
+  body: none
+  auth: none
+}
+
+headers {
+  x-request-id: req_bruno_get_job
+}

@@ -1,0 +1,80 @@
+meta {
+  name: Create Quick Audit Job
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{base_url}}/api/jobs
+  body: multipartForm
+  auth: none
+}
+
+headers {
+  x-request-id: req_bruno_create_quick
+}
+
+body:multipart-form {
+  file: @file({{sample_pdf_path}})
+  config_json: {"review_mode":"quick_audit","parser_provider":"pymupdf"}
+}
+
+script:post-response {
+  if (res.body && res.body.data && res.body.data.job_id) {
+    bru.setEnvVar("job_id", res.body.data.job_id);
+  }
+}
+
+example {
+  name: cpfl_example
+  
+  request: {
+    url: {{base_url}}/api/jobs
+    method: POST
+    mode: multipartForm
+    headers: {
+      x-request-id: req_bruno_create_quick
+    }
+  
+    body:multipart-form: {
+      file: @file({{sample_pdf_path}})
+      config_json: {"review_mode":"quick_audit","parser_provider":"pymupdf"}
+    }
+  }
+  
+  response: {
+    headers: {
+      date: Sat, 09 May 2026 06:31:01 GMT
+      server: uvicorn
+      content-length: 413
+      content-type: application/json
+    }
+  
+    status: {
+      code: 200
+      text: OK
+    }
+  
+    body: {
+      type: json
+      content: '''
+        {
+          "data": {
+            "job_id": "job_d63a46a1ea304add",
+            "status": "completed",
+            "warnings": [],
+            "error": null,
+            "upload_path": "var/uploads/job_d63a46a1ea304add/CPFL.pdf",
+            "paper_ir_path": "var/parsed/job_d63a46a1ea304add/paper_ir.json",
+            "trace_path": "var/parsed/job_d63a46a1ea304add/trace.json",
+            "created_at": "2026-05-09T06:31:03.872625+00:00",
+            "updated_at": "2026-05-09T06:31:04.026212+00:00"
+          },
+          "meta": {
+            "request_id": "req_bruno_create_quick"
+          }
+        }
+      '''
+    }
+  }
+}

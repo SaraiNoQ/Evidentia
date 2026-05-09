@@ -1,0 +1,15 @@
+meta {
+  name: Get Issue Evidence
+  type: http
+  seq: 6
+}
+
+get {
+  url: {{base_url}}/api/jobs/{{job_id}}/issues/{{issue_id}}/evidence
+  body: none
+  auth: none
+}
+
+headers {
+  x-request-id: req_bruno_get_issue_evidence
+}

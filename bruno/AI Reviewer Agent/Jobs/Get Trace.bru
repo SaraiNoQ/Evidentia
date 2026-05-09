@@ -1,0 +1,15 @@
+meta {
+  name: Get Trace
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{base_url}}/api/jobs/{{job_id}}/trace
+  body: none
+  auth: none
+}
+
+headers {
+  x-request-id: req_bruno_get_trace
+}

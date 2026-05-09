@@ -1,0 +1,20 @@
+meta {
+  name: Invalid File Type Error
+  type: http
+  seq: 8
+}
+
+post {
+  url: {{base_url}}/api/jobs
+  body: multipartForm
+  auth: none
+}
+
+headers {
+  x-request-id: req_bruno_invalid_file
+}
+
+body:multipart-form {
+  file: @file(../fixtures/not-a-pdf.txt)
+  config_json: {"review_mode":"quick_audit","parser_provider":"pymupdf"}
+}

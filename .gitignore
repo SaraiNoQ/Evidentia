@@ -1,0 +1,52 @@
+# macOS / editor files
+.DS_Store
+*.swp
+*.swo
+.idea/
+.vscode/
+
+# Python caches
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Virtual environments and uv cache
+.venv/
+venv/
+env/
+.uv-cache/
+
+# Local env / secrets
+.env
+.env.*
+!.env.example
+
+# Local runtime artifacts
+var/
+logs/
+tmp/
+temp/
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+
+# Test and generated fixtures
+*.log
+
+# Node / frontend future work
+node_modules/
+.next/
+out/
+coverage/
+
+# Keep tracked API docs and Bruno collection files.
+!bruno/
+!docs/
+!uv.lock

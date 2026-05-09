@@ -1,0 +1,26 @@
+meta {
+  name: Create Local Full Audit Job
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{base_url}}/api/jobs
+  body: multipartForm
+  auth: none
+}
+
+headers {
+  x-request-id: req_bruno_create_local_full
+}
+
+body:multipart-form {
+  file: @file({{sample_pdf_path}})
+  config_json: {"review_mode":"local_full_audit","parser_provider":"pymupdf"}
+}
+
+script:post-response {
+  if (res.body && res.body.data && res.body.data.job_id) {
+    bru.setEnvVar("job_id", res.body.data.job_id);
+  }
+}

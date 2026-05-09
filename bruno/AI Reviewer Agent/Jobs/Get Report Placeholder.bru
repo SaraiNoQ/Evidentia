@@ -1,0 +1,15 @@
+meta {
+  name: Get Report Placeholder
+  type: http
+  seq: 7
+}
+
+get {
+  url: {{base_url}}/api/jobs/{{job_id}}/report?format=markdown
+  body: none
+  auth: none
+}
+
+headers {
+  x-request-id: req_bruno_get_report
+}
