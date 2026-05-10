@@ -16,7 +16,7 @@ headers {
 
 body:multipart-form {
   file: @file({{sample_pdf_path}})
-  config_json: {"review_mode":"quick_audit","parser_provider":"pymupdf"}
+  config_json: {"review_mode":"quick_audit"}
 }
 
 script:post-response {
@@ -38,13 +38,13 @@ example {
   
     body:multipart-form: {
       file: @file({{sample_pdf_path}})
-      config_json: {"review_mode":"quick_audit","parser_provider":"pymupdf"}
+      config_json: {"review_mode":"quick_audit"}
     }
   }
   
   response: {
     headers: {
-      date: Sat, 09 May 2026 06:31:01 GMT
+      date: Sat, 09 May 2026 07:34:57 GMT
       server: uvicorn
       content-length: 413
       content-type: application/json
@@ -60,15 +60,262 @@ example {
       content: '''
         {
           "data": {
-            "job_id": "job_d63a46a1ea304add",
+            "job_id": "job_74326c27615c45f1",
             "status": "completed",
             "warnings": [],
             "error": null,
-            "upload_path": "var/uploads/job_d63a46a1ea304add/CPFL.pdf",
-            "paper_ir_path": "var/parsed/job_d63a46a1ea304add/paper_ir.json",
-            "trace_path": "var/parsed/job_d63a46a1ea304add/trace.json",
-            "created_at": "2026-05-09T06:31:03.872625+00:00",
-            "updated_at": "2026-05-09T06:31:04.026212+00:00"
+            "upload_path": "var/uploads/job_74326c27615c45f1/CPFL.pdf",
+            "paper_ir_path": "var/parsed/job_74326c27615c45f1/paper_ir.json",
+            "trace_path": "var/parsed/job_74326c27615c45f1/trace.json",
+            "created_at": "2026-05-09T07:34:57.722837+00:00",
+            "updated_at": "2026-05-09T07:34:57.867478+00:00"
+          },
+          "meta": {
+            "request_id": "req_bruno_create_quick"
+          }
+        }
+      '''
+    }
+  }
+}
+
+example {
+  name: example
+  
+  request: {
+    url: {{base_url}}/api/jobs
+    method: POST
+    mode: multipartForm
+    headers: {
+      x-request-id: req_bruno_create_quick
+    }
+  
+    body:multipart-form: {
+      file: @file({{sample_pdf_path}})
+      config_json: {"review_mode":"quick_audit"}
+    }
+  }
+  
+  response: {
+    headers: {
+      date: Sun, 10 May 2026 03:45:38 GMT
+      server: uvicorn
+      content-length: 864
+      content-type: application/json
+    }
+  
+    status: {
+      code: 200
+      text: OK
+    }
+  
+    body: {
+      type: json
+      content: '''
+        {
+          "data": {
+            "job_id": "job_e24eb63b47a84007",
+            "status": "completed",
+            "warnings": [
+              "paper_ir_v0_2_built_from_pymupdf_fallback",
+              "grobid_unavailable:[Errno 111] Connection refused",
+              "using_pymupdf_fallback_sections",
+              "using_pymupdf_fallback_references",
+              "marker_connected",
+              "pdffigures2_unavailable"
+            ],
+            "error": null,
+            "upload_path": "/root/AI-reviewer/var/uploads/job_e24eb63b47a84007/CPFL.pdf",
+            "paper_ir_path": "/root/AI-reviewer/var/parsed/job_e24eb63b47a84007/paper_ir.json",
+            "canonical_markdown_path": "/root/AI-reviewer/var/parsed/job_e24eb63b47a84007/canonical_paper.md",
+            "parse_report_path": "/root/AI-reviewer/var/parsed/job_e24eb63b47a84007/parse_report.json",
+            "trace_path": "/root/AI-reviewer/var/parsed/job_e24eb63b47a84007/trace.json",
+            "created_at": "2026-05-10T03:45:42.564747+00:00",
+            "updated_at": "2026-05-10T03:45:58.014513+00:00"
+          },
+          "meta": {
+            "request_id": "req_bruno_create_quick"
+          }
+        }
+      '''
+    }
+  }
+}
+
+example {
+  name: example (1)
+  
+  request: {
+    url: {{base_url}}/api/jobs
+    method: POST
+    mode: multipartForm
+    headers: {
+      x-request-id: req_bruno_create_quick
+    }
+  
+    body:multipart-form: {
+      file: @file({{sample_pdf_path}})
+      config_json: {"review_mode":"quick_audit"}
+    }
+  }
+  
+  response: {
+    headers: {
+      date: Sun, 10 May 2026 04:59:50 GMT
+      server: uvicorn
+      content-length: 759
+      content-type: application/json
+    }
+  
+    status: {
+      code: 200
+      text: OK
+    }
+  
+    body: {
+      type: json
+      content: '''
+        {
+          "data": {
+            "job_id": "job_95983dfd8a504811",
+            "status": "completed",
+            "warnings": [
+              "paper_ir_v0_2_built_from_pymupdf_fallback",
+              "grobid_connected",
+              "marker_connected",
+              "pdffigures2_connected"
+            ],
+            "error": null,
+            "upload_path": "/root/AI-reviewer/var/uploads/job_95983dfd8a504811/CPFL.pdf",
+            "paper_ir_path": "/root/AI-reviewer/var/parsed/job_95983dfd8a504811/paper_ir.json",
+            "canonical_markdown_path": "/root/AI-reviewer/var/parsed/job_95983dfd8a504811/canonical_paper.md",
+            "parse_report_path": "/root/AI-reviewer/var/parsed/job_95983dfd8a504811/parse_report.json",
+            "trace_path": "/root/AI-reviewer/var/parsed/job_95983dfd8a504811/trace.json",
+            "created_at": "2026-05-10T04:59:56.779466+00:00",
+            "updated_at": "2026-05-10T05:00:23.364646+00:00"
+          },
+          "meta": {
+            "request_id": "req_bruno_create_quick"
+          }
+        }
+      '''
+    }
+  }
+}
+
+example {
+  name: example (2)
+  
+  request: {
+    url: {{base_url}}/api/jobs
+    method: POST
+    mode: multipartForm
+    headers: {
+      x-request-id: req_bruno_create_quick
+    }
+  
+    body:multipart-form: {
+      file: @file({{sample_pdf_path}})
+      config_json: {"review_mode":"quick_audit"}
+    }
+  }
+  
+  response: {
+    headers: {
+      date: Sun, 10 May 2026 05:39:15 GMT
+      server: uvicorn
+      content-length: 759
+      content-type: application/json
+    }
+  
+    status: {
+      code: 200
+      text: OK
+    }
+  
+    body: {
+      type: json
+      content: '''
+        {
+          "data": {
+            "job_id": "job_fd4e2e5c30584b0a",
+            "status": "completed",
+            "warnings": [
+              "paper_ir_v0_2_built_from_pymupdf_fallback",
+              "grobid_connected",
+              "marker_connected",
+              "pdffigures2_connected"
+            ],
+            "error": null,
+            "upload_path": "/root/AI-reviewer/var/uploads/job_fd4e2e5c30584b0a/CPFL.pdf",
+            "paper_ir_path": "/root/AI-reviewer/var/parsed/job_fd4e2e5c30584b0a/paper_ir.json",
+            "canonical_markdown_path": "/root/AI-reviewer/var/parsed/job_fd4e2e5c30584b0a/canonical_paper.md",
+            "parse_report_path": "/root/AI-reviewer/var/parsed/job_fd4e2e5c30584b0a/parse_report.json",
+            "trace_path": "/root/AI-reviewer/var/parsed/job_fd4e2e5c30584b0a/trace.json",
+            "created_at": "2026-05-10T05:39:21.042748+00:00",
+            "updated_at": "2026-05-10T05:39:47.654234+00:00"
+          },
+          "meta": {
+            "request_id": "req_bruno_create_quick"
+          }
+        }
+      '''
+    }
+  }
+}
+
+example {
+  name: example (3)
+  
+  request: {
+    url: {{base_url}}/api/jobs
+    method: POST
+    mode: multipartForm
+    headers: {
+      x-request-id: req_bruno_create_quick
+    }
+  
+    body:multipart-form: {
+      file: @file({{sample_pdf_path}})
+      config_json: {"review_mode":"quick_audit"}
+    }
+  }
+  
+  response: {
+    headers: {
+      date: Sun, 10 May 2026 06:13:42 GMT
+      server: uvicorn
+      content-length: 810
+      content-type: application/json
+    }
+  
+    status: {
+      code: 200
+      text: OK
+    }
+  
+    body: {
+      type: json
+      content: '''
+        {
+          "data": {
+            "job_id": "job_493a77a9d51e42a7",
+            "status": "completed",
+            "warnings": [
+              "paper_ir_v0_2_built_from_pymupdf_fallback",
+              "grobid_connected",
+              "marker_connected",
+              "pdffigures2_connected",
+              "llm_api_key_missing_using_deterministic_fallback"
+            ],
+            "error": null,
+            "upload_path": "/root/AI-reviewer/var/uploads/job_493a77a9d51e42a7/CPFL.pdf",
+            "paper_ir_path": "/root/AI-reviewer/var/parsed/job_493a77a9d51e42a7/paper_ir.json",
+            "canonical_markdown_path": "/root/AI-reviewer/var/parsed/job_493a77a9d51e42a7/canonical_paper.md",
+            "parse_report_path": "/root/AI-reviewer/var/parsed/job_493a77a9d51e42a7/parse_report.json",
+            "trace_path": "/root/AI-reviewer/var/parsed/job_493a77a9d51e42a7/trace.json",
+            "created_at": "2026-05-10T06:13:45.108803+00:00",
+            "updated_at": "2026-05-10T06:14:30.630507+00:00"
           },
           "meta": {
             "request_id": "req_bruno_create_quick"

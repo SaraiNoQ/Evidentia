@@ -8,6 +8,7 @@ from app.core.models import (
     EvidenceSourceType,
     JobConfig,
     PaperChunk,
+    ParserProfile,
     ReviewMode,
 )
 
@@ -16,7 +17,8 @@ def test_job_config_defaults() -> None:
     config = JobConfig()
 
     assert config.review_mode == ReviewMode.QUICK_AUDIT
-    assert config.parser_provider == "pymupdf"
+    assert config.parser_provider == "paper_ir_ensemble"
+    assert config.parser_profile == ParserProfile.RESEARCH_DEFAULT
     assert config.external_retrieval_enabled is False
 
 

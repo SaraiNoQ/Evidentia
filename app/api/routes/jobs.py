@@ -1,15 +1,17 @@
 import json
 from typing import Annotated, Any, cast
 
-from fastapi import APIRouter, File, Form, Request, UploadFile
+from fastapi import APIRouter, File, Form, Request, Response, UploadFile
 from pydantic import ValidationError
 
+from app.agents.markdown_understanding import MarkdownUnderstandingAgent
 from app.agents.orchestrator import LocalAuditOrchestrator
 from app.api.envelope import error_response, success
 from app.core.config import Settings
 from app.core.models import JobConfig, JobRecord, JobStatus, PaperTrace, ReviewMode
 from app.core.repository import LocalJobRepository
 from app.parsing.factory import get_parser
+from app.parsing.paper_ir import paper_document_to_ir, render_canonical_markdown
 
 router = APIRouter(prefix="/api/jobs", tags=["jobs"])
 
@@ -56,33 +58,65 @@ async def create_job(
     try:
         parser = get_parser(config.parser_provider or settings.parser_provider)
         parse_result = parser.parse(record.upload_path, job_id=record.job_id, config=config)
-        paper_ir_path = repository.save_paper_ir(record, parse_result.paper_document)
+        paper_ir = parse_result.paper_ir or paper_document_to_ir(
+            parse_result.paper_document,
+            parser_profile=config.parser_profile,
+        )
+        for warning in parse_result.warnings:
+            if warning not in paper_ir.parse_report.warnings:
+                paper_ir.parse_report.warnings.append(warning)
+        canonical_markdown = render_canonical_markdown(paper_ir)
+        paper_ir_path = repository.save_paper_ir(record, paper_ir)
+        canonical_markdown_path = repository.save_canonical_markdown(record, canonical_markdown)
+        parse_report_path = repository.save_parse_report(record, paper_ir)
         record.trace_path = repository.parsed_root / record.job_id / "trace.json"
+
+        paper_understanding = None
+        understanding_run = None
+        if config.review_mode in {ReviewMode.QUICK_AUDIT, ReviewMode.LOCAL_FULL_AUDIT}:
+            paper_understanding, understanding_run = await MarkdownUnderstandingAgent(settings).run(
+                job_id=record.job_id,
+                markdown=canonical_markdown,
+                paper_ir=paper_ir,
+            )
 
         audit_result = None
         if config.review_mode in {ReviewMode.QUICK_AUDIT, ReviewMode.LOCAL_FULL_AUDIT}:
             audit_result = LocalAuditOrchestrator().run(parse_result.paper_document)
 
         record.status = JobStatus.COMPLETED
-        record.warnings = parse_result.warnings + (audit_result.warnings if audit_result else [])
+        record.warnings = [
+            *parse_result.warnings,
+            *(understanding_run.warnings if understanding_run else []),
+            *(audit_result.warnings if audit_result else []),
+        ]
+        agent_runs = []
+        if understanding_run:
+            agent_runs.append(understanding_run)
+        if audit_result:
+            agent_runs.extend(audit_result.agent_runs)
         trace = PaperTrace(
             schema_version=settings.schema_version,
             job=record,
             parser_provider=parse_result.provider,
             job_config=config,
             paper_document=parse_result.paper_document,
+            paper_ir=paper_ir,
             generated_files={
                 "upload_pdf": str(record.upload_path),
                 "paper_ir": str(paper_ir_path),
+                "canonical_markdown": str(canonical_markdown_path),
+                "parse_report": str(parse_report_path),
                 "trace": str(record.trace_path),
             },
-            warnings=record.warnings,
+            warnings=[*record.warnings, *paper_ir.parse_report.warnings],
+            paper_understanding=paper_understanding,
             summary=audit_result.summary if audit_result else None,
             claims=audit_result.claims if audit_result else [],
             questions=audit_result.questions if audit_result else [],
             evidence_answers=audit_result.evidence_answers if audit_result else [],
             issues=audit_result.issues if audit_result else [],
-            agent_runs=audit_result.agent_runs if audit_result else [],
+            agent_runs=agent_runs,
             retrieval_hits=audit_result.retrieval_hits if audit_result else [],
         )
         repository.save_trace(record, trace)
@@ -123,6 +157,54 @@ def get_trace(job_id: str, request: Request) -> dict[str, Any] | Any:
             details={"job_id": job_id},
         )
     return success(trace.model_dump(mode="json"), request)
+
+
+@router.get("/{job_id}/markdown")
+def get_markdown(
+    job_id: str,
+    request: Request,
+    raw: bool = False,
+) -> Any:
+    repository = _repository(request)
+    record = repository.get_job(job_id)
+    if record is None:
+        return _job_not_found(job_id, request)
+    markdown = repository.load_canonical_markdown(job_id)
+    if markdown is None:
+        return error_response(
+            code="markdown_not_ready",
+            message="Canonical markdown is not ready for this job.",
+            request=request,
+            status_code=409,
+            details={"job_id": job_id},
+        )
+    if raw:
+        return Response(content=markdown, media_type="text/markdown; charset=utf-8")
+
+    trace = repository.load_trace(job_id)
+    paper_ir = trace.paper_ir if trace else None
+    report = paper_ir.parse_report if paper_ir else None
+    return success(
+        {
+            "job_id": job_id,
+            "paper_id": paper_ir.paper_id if paper_ir else None,
+            "markdown": markdown,
+            "canonical_markdown_path": (
+                str(record.canonical_markdown_path) if record.canonical_markdown_path else None
+            ),
+            "parse_report_summary": {
+                "parser_sources": (
+                    [source.value for source in report.parser_sources] if report else []
+                ),
+                "warnings": report.warnings if report else [],
+                "section_count": len(paper_ir.sections) if paper_ir else 0,
+                "reference_count": len(paper_ir.references) if paper_ir else 0,
+                "figure_count": len(paper_ir.assets.figures) if paper_ir else 0,
+                "table_count": len(paper_ir.assets.tables) if paper_ir else 0,
+            },
+        },
+        request,
+    )
 
 
 @router.get("/{job_id}/issues")
@@ -224,6 +306,10 @@ def _job_payload(record: JobRecord) -> dict[str, Any]:
         "error": record.error,
         "upload_path": str(record.upload_path),
         "paper_ir_path": str(record.paper_ir_path) if record.paper_ir_path else None,
+        "canonical_markdown_path": (
+            str(record.canonical_markdown_path) if record.canonical_markdown_path else None
+        ),
+        "parse_report_path": str(record.parse_report_path) if record.parse_report_path else None,
         "trace_path": str(record.trace_path) if record.trace_path else None,
         "created_at": record.created_at.isoformat(),
         "updated_at": record.updated_at.isoformat(),

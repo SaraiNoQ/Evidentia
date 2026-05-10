@@ -16,7 +16,7 @@ headers {
 
 body:multipart-form {
   file: @file({{sample_pdf_path}})
-  config_json: {"review_mode":"local_full_audit","parser_provider":"pymupdf"}
+  config_json: {"review_mode":"local_full_audit"}
 }
 
 script:post-response {

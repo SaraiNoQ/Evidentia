@@ -30,9 +30,11 @@ bruno/AI Reviewer Agent
 2. Run `Create Local Full Audit Job`.
 3. The post-response script stores `job_id`.
 4. Run `Get Trace`.
-5. Run `List Issues`.
-6. The post-response script stores the first `issue_id`.
-7. Run `Get Issue Evidence`.
+5. Run `Get Canonical Markdown` to inspect the JSON envelope.
+6. Run `Get Raw Markdown` when you want the direct `text/markdown` body for LLM input.
+7. Run `List Issues`.
+8. The post-response script stores the first `issue_id`.
+9. Run `Get Issue Evidence`.
 
 `Get Report Placeholder` is expected to return `409 report_not_ready` until Phase 2 report generation is implemented.
 

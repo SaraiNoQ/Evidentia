@@ -1,4 +1,5 @@
 from app.parsing.base import ParserProvider
+from app.parsing.ensemble import PaperIREnsembleParser
 from app.parsing.grobid import GrobidReferenceParser
 from app.parsing.mineru import MinerUParser
 from app.parsing.pymupdf_parser import PyMuPDFParser
@@ -6,6 +7,8 @@ from app.parsing.pymupdf_parser import PyMuPDFParser
 
 def get_parser(provider: str) -> ParserProvider:
     normalized = provider.lower()
+    if normalized in {"paper_ir_ensemble", "ensemble", "research_default"}:
+        return PaperIREnsembleParser()
     if normalized == "pymupdf":
         return PyMuPDFParser()
     if normalized == "mineru":

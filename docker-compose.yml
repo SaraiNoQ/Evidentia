@@ -1,0 +1,55 @@
+services:
+  grobid:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.grobid
+    container_name: ai-reviewer-grobid
+    init: true
+    ports:
+      - "8070:8070"
+    environment:
+      JAVA_OPTS: "-Xms512m -Xmx2g"
+    ulimits:
+      core: 0
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8070/api/isalive"]
+      interval: 20s
+      timeout: 5s
+      retries: 12
+
+  api:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.app
+    container_name: ai-reviewer-api
+    depends_on:
+      grobid:
+        condition: service_started
+    ports:
+      - "8000:8000"
+    environment:
+      AI_REVIEWER_GROBID_BASE_URL: "http://grobid:8070"
+      AI_REVIEWER_GROBID_TIMEOUT_SECONDS: "60"
+      AI_REVIEWER_MARKER_ENABLED: "true"
+      AI_REVIEWER_MARKER_OUTPUT_FORMAT: "json"
+      AI_REVIEWER_MARKER_TIMEOUT_SECONDS: "180"
+      AI_REVIEWER_MARKER_QUICK_PAGE_LIMIT: "3"
+      AI_REVIEWER_MARKER_DISABLE_IMAGE_EXTRACTION: "true"
+      AI_REVIEWER_MARKER_LOW_MEMORY_MODE: "false"
+      AI_REVIEWER_PDFFIGURES2_ENABLED: "true"
+      AI_REVIEWER_PDFFIGURES2_COMMAND: "pdffigures2"
+      AI_REVIEWER_OBJECT_STORAGE_PATH: "/app/var"
+      TORCH_DEVICE: "cpu"
+      OCR_ENGINE: "None"
+      HF_HOME: "/app/var/hf-cache"
+      XDG_CACHE_HOME: "/app/var/model-cache"
+      TORCH_HOME: "/app/var/torch-cache"
+      MPLCONFIGDIR: "/app/var/matplotlib-cache"
+      OMP_NUM_THREADS: "1"
+      MKL_NUM_THREADS: "1"
+      NUMEXPR_MAX_THREADS: "1"
+      TOKENIZERS_PARALLELISM: "false"
+    volumes:
+      - ./app:/app/app
+      - ./var:/app/var
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]

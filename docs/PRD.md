@@ -144,6 +144,7 @@ sequenceDiagram
 - 外部文献列表。
 - 数值校验记录。
 - parser warnings。
+- canonical paper Markdown for pure-text LLM understanding。
 - agent disagreement records。
 - finalization gate status。
 

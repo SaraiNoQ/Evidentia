@@ -12,7 +12,7 @@ AI Reviewer Agent uses a Python-first backend, LangGraph-based agent orchestrati
 | Cache / queue | Redis | Job queue, cache, locks, transient run state |
 | Frontend | Next.js + React + TypeScript | Dashboard, report viewer, evidence browser, revision workflow |
 | Python tooling | uv + ruff + pytest + mypy | Dependency management, linting, testing, type checking |
-| Parsing | MinerU + PyMuPDF + GROBID | PDF structure, fallback page extraction, references and metadata |
+| Parsing | GROBID + Marker + pdffigures2 + PyMuPDF | Paper skeleton, content flow, figure/table assets, fallback page extraction |
 | LLM integration | OpenAI-compatible adapter | DeepSeek V4 Pro, GPT-5.5, and future provider routing |
 | Reporting | Markdown first, PDF later | PAT-style report, evidence appendix, JSON trace |
 
@@ -117,24 +117,30 @@ Rules:
 
 ## 6. Parsing
 
-Default: `MinerU + PyMuPDF + GROBID`.
+Default parser profile: `research_default`.
 
 Responsibilities:
 
-- MinerU: primary PDF-to-structured-content parser.
-- PyMuPDF: page text, coordinates, page images, and fallback extraction.
-- GROBID: references, citations, and paper metadata.
+- GROBID: paper metadata, abstract, section tree, references, and citation contexts.
+- Marker: research-default content flow, canonical markdown candidate, equations, inline math, basic tables, and images.
+- pdffigures2: figure/table captions, labels, image crops, and caption-object binding.
+- PyMuPDF: text-based PDF preflight, fallback text extraction, embedded images, and debug artifacts.
+- PaperIR renderer: canonical markdown generation from internal structure.
 
 Later additions:
 
-- Table-specific extraction tools if MinerU output is insufficient.
-- VLM fallback for low-confidence pages, complex tables, and figure-heavy pages.
+- Docling for structure validation and commercial-safe parsing profile.
+- Camelot for table repair on low-confidence experiment tables.
+- MinerU for hard-case formulas, complex tables and multi-column fallback.
 
 Rules:
 
 - Parser output must include confidence and warnings.
 - Low-confidence pages must not silently pass as reliable evidence.
 - Parsed chunks must preserve page and section anchors whenever possible.
+- Pure-text LLM agents consume `canonical_paper.md` first; PaperIR remains the trace and evidence structure.
+- Quick audit does not mean partial PDF parsing; `canonical_paper.md` should represent the full manuscript unless the user explicitly sets `max_pages`.
+- Marker is acceptable for internal research; commercial self-hosting requires licensing or switching to the commercial-safe profile.
 
 ## 7. Retrieval
 
@@ -170,6 +176,13 @@ Supported provider pattern:
 - DeepSeek V4 Pro.
 - GPT-5.5.
 - Gemini, Claude, or local models when exposed through compatible adapters.
+
+MVP DeepSeek defaults, following the OpenAI-compatible DeepSeek API documented at <https://api-docs.deepseek.com/>:
+
+- `AI_REVIEWER_LLM_BASE_URL=https://api.deepseek.com`
+- `AI_REVIEWER_LLM_MODEL=deepseek-v4-pro`
+- `AI_REVIEWER_LLM_API_KEY` is read only from environment or `.env`; never commit it.
+- Missing keys fall back to deterministic local understanding so parser and API tests remain stable.
 
 Rules:
 
@@ -219,4 +232,3 @@ Later production:
 - separate API and worker processes.
 - managed PostgreSQL/Redis.
 - observability for job duration, token usage, parser warnings, gate failures, and report generation failures.
-

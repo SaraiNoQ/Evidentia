@@ -282,24 +282,26 @@ The final report must be traceable from Issue -> Claim -> EvidenceAnchor -> Pape
 
 ### Parser Strategy
 
-Use parser ensemble when possible:
+Use a PaperIR-first parser ensemble. The system does not treat any third-party parser's Markdown as authoritative.
 
-- MinerU as the primary parser for PDF to structured markdown/content。
-- PyMuPDF for page text, coordinates, page images and fallback extraction。
-- GROBID for references and metadata。
-- Camelot/Tabula or equivalent for tables when available。
-- Pandoc for LaTeX/Markdown/DOCX when source files are provided。
-- VLM fallback for complex tables, figures and low-confidence pages。
+- GROBID provides metadata, abstract, canonical section tree, references and citation contexts。
+- Marker provides the research-default content flow: paragraphs, markdown blocks, equations, inline math, basic tables and images。
+- pdffigures2 provides figure/table labels, captions, image crops and caption-object binding。
+- PyMuPDF provides text-based PDF preflight, low-level text/image fallback and debug artifacts。
+- Docling is the Phase 2 structure checker and commercial-safe parser profile。
+- Camelot repairs low-confidence experiment tables。
+- MinerU is reserved for hard-case formulas, complex tables and multi-column fallback。
+
+The default profile is `research_default`: GROBID + Marker + pdffigures2 + PyMuPDF. Marker is used for internal research speed and must be replaced or licensed before closed commercial self-hosting.
 
 ### Parser Output
 
 Parser writes:
 
-- `parsed/paper.md` with layout anchors。
-- `parsed/chunks.json`。
-- `parsed/artifacts.json`。
-- `parsed/references.json`。
+- `parsed/paper_ir.json` as the canonical parser output。
+- `parsed/canonical_paper.md` rendered from PaperIR。
 - `parsed/parse_report.json`。
+- raw parser debug outputs when available。
 
 ### Parsing Gate Signals
 
@@ -869,10 +871,11 @@ Final report constraints:
 - Cache and queue: Redis。
 - Frontend: Next.js + React + TypeScript。
 - Python tooling: uv + ruff + pytest + mypy。
-- Parser stack: MinerU as primary parser, PyMuPDF for page coordinates/fallback, GROBID for metadata and references。
+- Parser stack: GROBID + Marker + pdffigures2 + PyMuPDF for the current `research_default` profile; Docling/Camelot/MinerU remain planned fallback and hard-case profiles。
+- Markdown-first understanding: `canonical_paper.md` is the primary input for pure-text LLM global understanding; PaperIR is retained for parser provenance, trace, section map, references and evidence anchors。
 - Search index: PostgreSQL full-text/BM25-compatible internal retrieval for MVP; external search adapters in Phase 3。
 - Object storage: local filesystem for dev, S3-compatible storage for production。
-- LLM Adapter: OpenAI-compatible client with provider routing for DeepSeek V4 Pro, GPT-5.5, and future providers。
+- LLM Adapter: OpenAI-compatible client with provider routing for DeepSeek V4 Pro, GPT-5.5, and future providers; DeepSeek-compatible default base URL is `https://api.deepseek.com` per <https://api-docs.deepseek.com/>。
 - Reranker: BGE reranker, Voyage, Cohere or local cross-encoder when external retrieval is enabled。
 
 Future alternatives:

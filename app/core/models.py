@@ -35,6 +35,24 @@ class ReviewMode(StrEnum):
     FULL_REVIEW = "full_review"
 
 
+class ParserProfile(StrEnum):
+    RESEARCH_DEFAULT = "research_default"
+    COMMERCIAL_SAFE = "commercial_safe"
+    HARD_CASE = "hard_case"
+
+
+class ParserSource(StrEnum):
+    GROBID = "grobid"
+    MARKER = "marker"
+    PDFFIGURES2 = "pdffigures2"
+    DOCLING = "docling"
+    CAMELOT = "camelot"
+    MINERU = "mineru"
+    PYMUPDF = "pymupdf"
+    FUSION = "fusion"
+    RENDERER = "renderer"
+
+
 class EvidenceSourceType(StrEnum):
     PAPER = "paper"
     EXTERNAL_PAPER = "external_paper"
@@ -78,6 +96,24 @@ class ArtifactType(StrEnum):
     FIGURE = "figure"
     EQUATION = "equation"
     ALGORITHM = "algorithm"
+
+
+class PaperBlockType(StrEnum):
+    PARAGRAPH = "paragraph"
+    HEADING = "heading"
+    EQUATION = "equation"
+    TABLE_REF = "table_ref"
+    FIGURE_REF = "figure_ref"
+    LIST = "list"
+    CODE = "code"
+    QUOTE = "quote"
+    APPENDIX = "appendix"
+
+
+class TextBasedPdfStatus(StrEnum):
+    TEXT_BASED = "text_based"
+    LOW_TEXT = "low_text"
+    UNSUPPORTED_SCANNED = "unsupported_scanned_pdf"
 
 
 class ClaimType(StrEnum):
@@ -127,7 +163,8 @@ class JobConfig(BaseModel):
 
     venue: str | None = None
     review_mode: ReviewMode = ReviewMode.QUICK_AUDIT
-    parser_provider: str = "pymupdf"
+    parser_provider: str = "paper_ir_ensemble"
+    parser_profile: ParserProfile = ParserProfile.RESEARCH_DEFAULT
     external_retrieval_enabled: bool = False
     max_pages: int | None = Field(default=None, ge=1)
     token_budget: int | None = Field(default=None, ge=1)
@@ -431,6 +468,205 @@ class LocalAuditResult(BaseModel):
     warnings: list[str] = Field(default_factory=list)
 
 
+class SectionDigest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    section_title: str
+    summary: str
+    key_points: list[str] = Field(default_factory=list)
+
+
+class PaperUnderstanding(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    global_summary: str
+    core_contributions: list[str] = Field(default_factory=list)
+    method_overview: str | None = None
+    experiment_overview: str | None = None
+    main_claims: list[str] = Field(default_factory=list)
+    section_digests: list[SectionDigest] = Field(default_factory=list)
+    potential_review_concerns: list[str] = Field(default_factory=list)
+    parse_warnings: list[str] = Field(default_factory=list)
+    source: Literal["llm", "deterministic"] = "deterministic"
+
+
+class PaperMetadata(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    title: str | None = None
+    authors: list[str] = Field(default_factory=list)
+    affiliations: list[str] = Field(default_factory=list)
+    keywords: list[str] = Field(default_factory=list)
+    venue: str | None = None
+    year: int | None = Field(default=None, ge=1000, le=3000)
+    doi: str | None = None
+
+
+class ParserProvenance(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    source_parser: ParserSource
+    source_id: str | None = None
+    page_start: int | None = Field(default=None, ge=1)
+    page_end: int | None = Field(default=None, ge=1)
+    confidence: float = Field(default=0.5, ge=0.0, le=1.0)
+    notes: list[str] = Field(default_factory=list)
+
+
+class SectionNode(PrefixModel):
+    section_id: str
+    title: str
+    normalized_title: str
+    level: int = Field(default=1, ge=1)
+    parent_id: str | None = None
+    source: ParserSource = ParserSource.FUSION
+    confidence: float = Field(default=0.5, ge=0.0, le=1.0)
+    block_ids: list[str] = Field(default_factory=list)
+
+    @field_validator("section_id")
+    @classmethod
+    def validate_section_id(cls, value: str) -> str:
+        return cls._validate_prefix(value, "sec")
+
+
+class PaperBlock(PrefixModel):
+    block_id: str
+    block_type: PaperBlockType
+    section_id: str | None = None
+    text: str
+    markdown: str | None = None
+    source_parser: ParserSource
+    confidence: float = Field(default=0.5, ge=0.0, le=1.0)
+    provenance: ParserProvenance
+
+    @field_validator("block_id")
+    @classmethod
+    def validate_block_id(cls, value: str) -> str:
+        return cls._validate_prefix(value, "block")
+
+
+class EquationBlock(PrefixModel):
+    equation_id: str
+    latex: str
+    label: str | None = None
+    number: str | None = None
+    section_id: str | None = None
+    source_parser: ParserSource
+    confidence: float = Field(default=0.5, ge=0.0, le=1.0)
+
+    @field_validator("equation_id")
+    @classmethod
+    def validate_equation_id(cls, value: str) -> str:
+        return cls._validate_prefix(value, "equation")
+
+
+class TableArtifactV2(PrefixModel):
+    table_id: str
+    label: str | None = None
+    caption: str | None = None
+    markdown: str | None = None
+    html: str | None = None
+    cells: list[list[str]] = Field(default_factory=list)
+    section_id: str | None = None
+    source_parser: ParserSource
+    repair_status: str = "unrepaired"
+    confidence: float = Field(default=0.5, ge=0.0, le=1.0)
+
+    @field_validator("table_id")
+    @classmethod
+    def validate_table_id(cls, value: str) -> str:
+        return cls._validate_prefix(value, "table")
+
+
+class FigureArtifactV2(PrefixModel):
+    figure_id: str
+    label: str | None = None
+    caption: str | None = None
+    image_path: str | None = None
+    section_id: str | None = None
+    source_parser: ParserSource
+    caption_confidence: float = Field(default=0.5, ge=0.0, le=1.0)
+
+    @field_validator("figure_id")
+    @classmethod
+    def validate_figure_id(cls, value: str) -> str:
+        return cls._validate_prefix(value, "figure")
+
+
+class ReferenceRecord(PrefixModel):
+    bib_id: str
+    raw: str
+    title: str | None = None
+    authors: list[str] = Field(default_factory=list)
+    year: int | None = Field(default=None, ge=1000, le=3000)
+    venue: str | None = None
+    doi: str | None = None
+    url: str | None = None
+    citation_markers: list[str] = Field(default_factory=list)
+
+    @field_validator("bib_id")
+    @classmethod
+    def validate_bib_id(cls, value: str) -> str:
+        return cls._validate_prefix(value, "bib")
+
+
+class CitationContext(PrefixModel):
+    citation_id: str
+    marker: str
+    bib_id: str | None = None
+    section_id: str | None = None
+    context: str
+    source_parser: ParserSource = ParserSource.GROBID
+    confidence: float = Field(default=0.5, ge=0.0, le=1.0)
+
+    @field_validator("citation_id")
+    @classmethod
+    def validate_citation_id(cls, value: str) -> str:
+        return cls._validate_prefix(value, "citation")
+
+
+class PaperAssetInventory(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    figures: list[FigureArtifactV2] = Field(default_factory=list)
+    tables: list[TableArtifactV2] = Field(default_factory=list)
+    equations: list[EquationBlock] = Field(default_factory=list)
+    images: list[str] = Field(default_factory=list)
+
+
+class ParseReport(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    text_based_pdf: TextBasedPdfStatus = TextBasedPdfStatus.TEXT_BASED
+    page_count: int = Field(default=0, ge=0)
+    parsed_pages: int = Field(default=0, ge=0)
+    section_coverage: float = Field(default=0.0, ge=0.0, le=1.0)
+    reference_coverage: float = Field(default=0.0, ge=0.0, le=1.0)
+    table_confidence: float = Field(default=0.0, ge=0.0, le=1.0)
+    figure_caption_alignment_confidence: float = Field(default=0.0, ge=0.0, le=1.0)
+    equation_confidence: float = Field(default=0.0, ge=0.0, le=1.0)
+    parser_profile: ParserProfile = ParserProfile.RESEARCH_DEFAULT
+    parser_sources: list[ParserSource] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+
+
+class PaperIR(PrefixModel):
+    paper_id: str
+    metadata: PaperMetadata = Field(default_factory=PaperMetadata)
+    abstract: str | None = None
+    sections: list[SectionNode] = Field(default_factory=list)
+    blocks: list[PaperBlock] = Field(default_factory=list)
+    references: list[ReferenceRecord] = Field(default_factory=list)
+    citations: list[CitationContext] = Field(default_factory=list)
+    assets: PaperAssetInventory = Field(default_factory=PaperAssetInventory)
+    parse_report: ParseReport = Field(default_factory=ParseReport)
+
+    @field_validator("paper_id")
+    @classmethod
+    def validate_paper_id(cls, value: str) -> str:
+        return cls._validate_prefix(value, "paper")
+
+
 class ReportTrace(PrefixModel):
     report_id: str
     job_id: str
@@ -459,6 +695,8 @@ class JobRecord(PrefixModel):
     config: JobConfig
     upload_path: Path
     paper_ir_path: Path | None = None
+    canonical_markdown_path: Path | None = None
+    parse_report_path: Path | None = None
     trace_path: Path | None = None
     error: str | None = None
     warnings: list[str] = Field(default_factory=list)
@@ -475,6 +713,7 @@ class ParseResult(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     paper_document: PaperDocument
+    paper_ir: PaperIR | None = None
     artifacts: dict[str, list[PaperArtifact]] = Field(default_factory=dict)
     references: list[Reference] = Field(default_factory=list)
     parse_confidence: float = Field(ge=0.0, le=1.0)
@@ -490,8 +729,10 @@ class PaperTrace(BaseModel):
     parser_provider: str
     job_config: JobConfig
     paper_document: PaperDocument
+    paper_ir: PaperIR | None = None
     generated_files: dict[str, str]
     warnings: list[str] = Field(default_factory=list)
+    paper_understanding: PaperUnderstanding | None = None
     summary: PaperSummary | None = None
     claims: list[Claim] = Field(default_factory=list)
     questions: list[QuestionNode] = Field(default_factory=list)

@@ -91,6 +91,30 @@ Create the technical foundation: a Python/FastAPI project skeleton, provider-neu
 
 ## 5. Phase 1: Local Full Audit Loop
 
+### Phase 1.5 Completed: PaperIR-first Parser Upgrade
+
+The PDF parser has been upgraded from PyMuPDF-only fallback to a PaperIR-first canonical parser pipeline:
+
+- Define PaperIR v0.2 as the authoritative parsing representation.
+- Render `canonical_paper.md` from PaperIR, not directly from a third-party parser.
+- Use `research_default` profile for internal research: GROBID + Marker + pdffigures2 + PyMuPDF.
+- Keep `commercial_safe` profile available for later: GROBID + Docling + pdffigures2 + PyMuPDF.
+- Persist `paper_ir.json`, `canonical_paper.md`, and `parse_report.json`.
+- Add parse gates for text-based PDF status, section coverage, reference coverage, table confidence, figure/caption confidence and equation confidence.
+- Treat scanned PDFs as unsupported until OCR is intentionally added.
+
+Current smoke target: CPFL.pdf parses with GROBID, Marker and pdffigures2 connected, no Marker `<content-ref>` placeholders in canonical Markdown, and PaperIR preserving parser source trace.
+
+### Phase 1.6: Markdown-first Global Understanding
+
+Before deeper reviewer agents rely on LLM reasoning, pure-text LLM support should start from canonical Markdown:
+
+- Expose `GET /api/jobs/{job_id}/markdown` for JSON envelope and `?raw=true` for `text/markdown`.
+- Add `MarkdownUnderstandingAgent` that reads `canonical_paper.md` plus parse summary, not full PaperIR JSON.
+- Write `PaperUnderstanding` and its `AgentRun` into `trace.json`.
+- Use OpenAI-compatible LLM adapter with DeepSeek defaults and deterministic fallback when no API key is configured.
+- Keep PaperIR as trace, parser provenance, section map, references, assets and future evidence anchor structure.
+
 ### Goal
 
 Run a local multi-agent audit without external retrieval. The system should summarize the paper, extract claims, audit internal consistency, and produce an initial issue list with paper evidence anchors.

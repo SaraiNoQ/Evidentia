@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from app.core.ids import new_id
-from app.core.models import JobConfig, JobRecord, JobStatus, PaperDocument, PaperTrace, utc_now
+from app.core.models import JobConfig, JobRecord, JobStatus, PaperIR, PaperTrace, utc_now
 
 
 class LocalJobRepository:
@@ -57,12 +57,40 @@ class LocalJobRepository:
         self.save_job(record)
         return record
 
-    def save_paper_ir(self, record: JobRecord, paper: PaperDocument) -> Path:
+    def save_paper_ir(self, record: JobRecord, paper_ir: PaperIR) -> Path:
         parsed_dir = self.parsed_root / record.job_id
         parsed_dir.mkdir(parents=True, exist_ok=True)
         path = parsed_dir / "paper_ir.json"
-        path.write_text(paper.model_dump_json(indent=2), encoding="utf-8")
+        path.write_text(paper_ir.model_dump_json(indent=2), encoding="utf-8")
         record.paper_ir_path = path
+        self.save_job(record)
+        return path
+
+    def save_canonical_markdown(self, record: JobRecord, markdown: str) -> Path:
+        parsed_dir = self.parsed_root / record.job_id
+        parsed_dir.mkdir(parents=True, exist_ok=True)
+        path = parsed_dir / "canonical_paper.md"
+        path.write_text(markdown, encoding="utf-8")
+        record.canonical_markdown_path = path
+        self.save_job(record)
+        return path
+
+    def load_canonical_markdown(self, job_id: str) -> str | None:
+        record = self.get_job(job_id)
+        if (
+            record is None
+            or record.canonical_markdown_path is None
+            or not record.canonical_markdown_path.exists()
+        ):
+            return None
+        return record.canonical_markdown_path.read_text(encoding="utf-8")
+
+    def save_parse_report(self, record: JobRecord, paper_ir: PaperIR) -> Path:
+        parsed_dir = self.parsed_root / record.job_id
+        parsed_dir.mkdir(parents=True, exist_ok=True)
+        path = parsed_dir / "parse_report.json"
+        path.write_text(paper_ir.parse_report.model_dump_json(indent=2), encoding="utf-8")
+        record.parse_report_path = path
         self.save_job(record)
         return path
 

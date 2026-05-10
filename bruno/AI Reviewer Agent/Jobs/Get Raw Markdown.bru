@@ -1,0 +1,15 @@
+meta {
+  name: Get Raw Markdown
+  type: http
+  seq: 9
+}
+
+get {
+  url: {{base_url}}/api/jobs/{{job_id}}/markdown?raw=true
+  body: none
+  auth: none
+}
+
+headers {
+  x-request-id: req_bruno_get_raw_markdown
+}

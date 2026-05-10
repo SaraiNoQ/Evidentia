@@ -48,6 +48,7 @@ ai-reviewer-agent/
 | Agent | Main Responsibility | Main Output |
 |---|---|---|
 | Orchestrator | 根据 JobConfig 和解析结果制定审稿 DAG，调度 specialist agents，检查 finalization gates | ReviewPlan, AgentRun records |
+| Markdown Understanding Agent | 以 `canonical_paper.md` 为纯文本 LLM 主输入，生成论文全局理解，不直接依赖完整 PaperIR JSON | PaperUnderstanding |
 | Paper Summarizer | 只基于论文内部证据生成多粒度摘要 | PaperSummary |
 | Claim Miner | 抽取 novelty、technical、theory、empirical、efficiency、privacy 等可审查 claim | ClaimGraph nodes |
 | Field Historian | 通过外部文献把论文放入领域发展脉络 | Research lineage, closest method families |
@@ -80,9 +81,12 @@ Default human-facing report output:
 flowchart TD
     A[Upload PDF] --> B[JobConfig]
     B --> C[Parsing and Normalization]
-    C --> D[Paper IR: PaperGraph / ClaimGraph]
+    C --> M[Canonical Markdown]
+    C --> D[PaperIR Trace]
+    M --> U[Markdown Understanding Agent]
     D --> E[Internal Indexes]
     D --> F[External Retrieval]
+    U --> G[Specialist Agents]
     E --> G[Specialist Agents]
     F --> G
     G --> H[EvidenceStore / IssueStore]
@@ -97,6 +101,7 @@ flowchart TD
 - [docs/PRD.md](docs/PRD.md): 产品目标、用户流程、功能需求、非功能需求、成功标准和版本边界。
 - [docs/SYSTEM-DESIGN.md](docs/SYSTEM-DESIGN.md): 多代理、RAG、证据机制、质量门控、数据结构、接口和工程架构。
 - [docs/TECH-STACK.md](docs/TECH-STACK.md): 已定版技术栈，包括 Python/FastAPI、LangGraph、PostgreSQL/pgvector/Redis、Next.js/React、MinerU/PyMuPDF/GROBID。
+- [docs/PARSING-DESIGN.md](docs/PARSING-DESIGN.md): PaperIR-first 论文解析架构、parser profiles、canonical markdown renderer 和 parse gates。
 - [docs/API.md](docs/API.md): 当前已实现 FastAPI 接口、请求/响应结构、错误码和 Bruno 调试入口。
 - [bruno/AI Reviewer Agent/README.md](bruno/AI%20Reviewer%20Agent/README.md): Bruno Desktop collection 使用说明，用于本地 API 开发和测试。
 - [docs/spec/README.md](docs/spec/README.md): 开发和维护规范目录，覆盖架构、API、数据模型、agent contract、prompt、证据门控、测试、代码风格、隐私安全和运维。
@@ -111,15 +116,27 @@ flowchart TD
 - Storage: PostgreSQL + pgvector + Redis。
 - Frontend: Next.js + React + TypeScript。
 - Python tooling: uv + ruff + pytest + mypy。
-- Parser stack: MinerU + PyMuPDF + GROBID。
-- LLM integration: OpenAI-compatible adapter for DeepSeek V4 Pro, GPT-5.5, and future providers。
+- Parser stack: GROBID + Marker + pdffigures2 + PyMuPDF for `research_default`; Docling/Camelot/MinerU remain later fallback profiles。
+- LLM integration: OpenAI-compatible adapter for DeepSeek V4 Pro, GPT-5.5, and future providers. DeepSeek-compatible default base URL is `https://api.deepseek.com`; API keys must stay in `.env` or runtime environment only.
+
+## Remote Runtime
+
+Current AutoDL/SeetaCloud server:
+
+```bash
+ssh -p 36278 root@connect.westb.seetacloud.com
+```
+
+Do not store the plaintext SSH password in repository files. Use the session-provided password,
+a local password manager, or an SSH key when operating the server.
 
 ## Recommended Build Order
 
-1. Build PDF parsing to Paper IR: extract sections, chunks, references, tables, figures, equations and layout anchors.
-2. Build internal indexes: dense retrieval, BM25, artifact index and citation mapping.
-3. Build core multi-agent DAG: Summarizer, Claim Miner, Auditors, Question Tree, Evidence Answerer and Meta-Reviewer.
-4. Build EvidenceStore and IssueStore: all findings must be traceable to paper, external or computed evidence.
-5. Build quality gates: parsing, claim coverage, retrieval, evidence, numeric consistency, conflict, hallucination and actionability.
-6. Build external retrieval: query planner, academic search adapters, reranker, external paper reader and Baseline Scout.
-7. Build reporting: reviewer-style report, actionable revision plan, evidence appendix and JSON trace export.
+1. Build PDF parsing to Paper IR and canonical Markdown: extract sections, chunks, references, tables, figures, equations and layout anchors.
+2. Build Markdown-first global understanding for pure-text LLMs, with PaperIR retained as trace and evidence structure.
+3. Build internal indexes: dense retrieval, BM25, artifact index and citation mapping.
+4. Build core multi-agent DAG: Summarizer, Claim Miner, Auditors, Question Tree, Evidence Answerer and Meta-Reviewer.
+5. Build EvidenceStore and IssueStore: all findings must be traceable to paper, external or computed evidence.
+6. Build quality gates: parsing, claim coverage, retrieval, evidence, numeric consistency, conflict, hallucination and actionability.
+7. Build external retrieval: query planner, academic search adapters, reranker, external paper reader and Baseline Scout.
+8. Build reporting: reviewer-style report, actionable revision plan, evidence appendix and JSON trace export.

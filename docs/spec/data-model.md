@@ -20,6 +20,8 @@ Required MVP models:
 - `Figure`
 - `Equation`
 - `Reference`
+- `PaperIR`
+- `PaperUnderstanding`
 - `Claim`
 - `EvidenceAnchor`
 - `Issue`
@@ -119,4 +121,3 @@ Required fields:
 - `source_agent_run_ids`
 - `generated_text_hash`
 - `gate_status_snapshot`
-

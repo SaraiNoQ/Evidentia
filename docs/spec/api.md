@@ -55,6 +55,7 @@ Required MVP endpoints:
 - `GET /health`: health check.
 - `POST /api/jobs`: create job with PDF and JobConfig.
 - `GET /api/jobs/{job_id}`: get job status.
+- `GET /api/jobs/{job_id}/markdown`: get canonical Markdown as JSON envelope or `text/markdown` with `raw=true`.
 - `GET /api/jobs/{job_id}/report?format=markdown`: download report.
 - `GET /api/jobs/{job_id}/trace`: download JSON trace.
 - `GET /api/jobs/{job_id}/issues`: list issues.
@@ -105,6 +106,7 @@ Common error codes:
 - `parse_failed`
 - `job_not_found`
 - `report_not_ready`
+- `markdown_not_ready`
 - `gate_failed`
 - `external_retrieval_disabled`
 - `schema_validation_failed`

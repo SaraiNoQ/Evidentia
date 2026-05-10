@@ -1,9 +1,12 @@
+import asyncio
 from pathlib import Path
 
 from app.agents.claim_miner import ClaimMiner
+from app.agents.markdown_understanding import MarkdownUnderstandingAgent
 from app.agents.meta_reviewer import MetaReviewer
 from app.agents.orchestrator import LocalAuditOrchestrator
 from app.agents.question_answering import EvidenceAnsweringAgent, QuestionTreeGenerator
+from app.core.config import Settings
 from app.core.ids import new_id
 from app.core.models import (
     Issue,
@@ -98,3 +101,27 @@ def test_local_audit_orchestrator_outputs_issues_and_agent_runs(sample_pdf_path:
         "evidence_answering_agent",
         "meta_reviewer",
     }
+
+
+def test_markdown_understanding_agent_uses_deterministic_fallback() -> None:
+    markdown = """# Test Paper
+
+## Abstract
+
+This paper proposes a Markdown-first reviewer workflow.
+
+## 1 Introduction
+
+We propose a canonical markdown understanding step before detailed review.
+"""
+
+    understanding, run = asyncio.run(
+        MarkdownUnderstandingAgent(Settings(llm_api_key=None)).run(
+            job_id="job_123", markdown=markdown, paper_ir=None
+        )
+    )
+
+    assert understanding.global_summary
+    assert understanding.source == "deterministic"
+    assert run.agent_name == "markdown_understanding_agent"
+    assert "llm_api_key_missing_using_deterministic_fallback" in run.warnings

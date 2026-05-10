@@ -1,6 +1,6 @@
 # API Reference
 
-This document describes the API implemented in the current FastAPI backend. It reflects the actual Phase 1 implementation: PDF upload, Paper IR parsing, local deterministic audit, issue listing, evidence lookup, and JSON trace export.
+This document describes the API implemented in the current FastAPI backend. It reflects the actual Phase 1 implementation: PDF upload, PaperIR-first parsing, canonical Markdown export, Markdown-first paper understanding, local deterministic audit, issue listing, evidence lookup, and JSON trace export.
 
 Default local base URL:
 
@@ -16,6 +16,7 @@ Implemented:
 - `POST /api/jobs`
 - `GET /api/jobs/{job_id}`
 - `GET /api/jobs/{job_id}/trace`
+- `GET /api/jobs/{job_id}/markdown`
 - `GET /api/jobs/{job_id}/issues`
 - `GET /api/jobs/{job_id}/issues/{issue_id}/evidence`
 
@@ -71,7 +72,8 @@ Used by `POST /api/jobs` as a JSON string in multipart field `config_json`.
 {
   "venue": null,
   "review_mode": "local_full_audit",
-  "parser_provider": "pymupdf",
+  "parser_provider": "paper_ir_ensemble",
+  "parser_profile": "research_default",
   "external_retrieval_enabled": false,
   "max_pages": null,
   "token_budget": null
@@ -86,9 +88,18 @@ Allowed `review_mode` values:
 
 Current parser support:
 
+- `paper_ir_ensemble`: default PaperIR-first research profile. It uses PyMuPDF preflight/fallback, GROBID skeleton extraction, Marker content parsing, pdffigures2 figure/table extraction, and the project fusion renderer.
 - `pymupdf`: implemented.
 - `mineru`: reserved placeholder, returns parse failure if selected.
 - `grobid`: reserved placeholder, returns parse failure if selected.
+
+Allowed `parser_profile` values:
+
+- `research_default`: implemented GROBID + Marker + pdffigures2 + PyMuPDF profile.
+- `commercial_safe`: planned GROBID + Docling + pdffigures2 + PyMuPDF profile.
+- `hard_case`: planned research profile plus Docling/Camelot/MinerU fallback.
+
+`quick_audit` still parses the full PDF for PaperIR and `canonical_paper.md` by default. Use `max_pages` only for explicit parser debugging or smoke tests; when it truncates Marker parsing the parse warnings include `marker_partial_page_parse:{parsed}/{total}`.
 
 ### JobRecord Payload
 
@@ -102,6 +113,8 @@ Returned by job status endpoints:
   "error": null,
   "upload_path": "var/uploads/job_.../paper.pdf",
   "paper_ir_path": "var/parsed/job_.../paper_ir.json",
+  "canonical_markdown_path": "var/parsed/job_.../canonical_paper.md",
+  "parse_report_path": "var/parsed/job_.../parse_report.json",
   "trace_path": "var/parsed/job_.../trace.json",
   "created_at": "2026-05-09T00:00:00+00:00",
   "updated_at": "2026-05-09T00:00:00+00:00"
@@ -173,7 +186,9 @@ Trace export contains:
 - parser provider.
 - job config.
 - `PaperDocument` with chunks, artifacts, references and warnings.
+- `PaperIR` with parser sources, sections, references, figures, tables and parse report.
 - generated file paths.
+- Markdown-first `paper_understanding`.
 - local audit summary.
 - claims.
 - question nodes.
@@ -226,7 +241,7 @@ Multipart fields:
 Example `config_json`:
 
 ```json
-{"review_mode":"local_full_audit","parser_provider":"pymupdf"}
+{"review_mode":"local_full_audit","parser_provider":"paper_ir_ensemble","parser_profile":"research_default"}
 ```
 
 Success:
@@ -240,6 +255,8 @@ Success:
     "error": null,
     "upload_path": "var/uploads/job_.../paper.pdf",
     "paper_ir_path": "var/parsed/job_.../paper_ir.json",
+    "canonical_markdown_path": "var/parsed/job_.../canonical_paper.md",
+    "parse_report_path": "var/parsed/job_.../parse_report.json",
     "trace_path": "var/parsed/job_.../trace.json",
     "created_at": "2026-05-09T00:00:00+00:00",
     "updated_at": "2026-05-09T00:00:00+00:00"
@@ -277,6 +294,8 @@ Success:
     "error": null,
     "upload_path": "var/uploads/job_123/paper.pdf",
     "paper_ir_path": "var/parsed/job_123/paper_ir.json",
+    "canonical_markdown_path": "var/parsed/job_123/canonical_paper.md",
+    "parse_report_path": "var/parsed/job_123/parse_report.json",
     "trace_path": "var/parsed/job_123/trace.json",
     "created_at": "2026-05-09T00:00:00+00:00",
     "updated_at": "2026-05-09T00:00:00+00:00"
@@ -306,13 +325,15 @@ Success:
 ```json
 {
   "data": {
-    "schema_version": "paper_ir.v0.1",
+    "schema_version": "paper_ir.v0.2",
     "job": {},
     "parser_provider": "pymupdf",
     "job_config": {},
     "paper_document": {},
+    "paper_ir": {},
     "generated_files": {},
     "warnings": [],
+    "paper_understanding": {},
     "summary": {},
     "claims": [],
     "questions": [],
@@ -331,6 +352,53 @@ Errors:
 
 - `404 job_not_found`
 - `409 report_not_ready`: trace is not written yet.
+
+### GET /api/jobs/{job_id}/markdown
+
+Returns the canonical Markdown rendered from PaperIR. This is the primary text artifact for pure-text LLM paper understanding.
+
+Request:
+
+```http
+GET /api/jobs/job_123/markdown
+```
+
+Success:
+
+```json
+{
+  "data": {
+    "job_id": "job_123",
+    "paper_id": "paper_...",
+    "markdown": "# Paper Title\n\n## Abstract\n...",
+    "canonical_markdown_path": "var/parsed/job_123/canonical_paper.md",
+    "parse_report_summary": {
+      "parser_sources": ["pymupdf", "fusion", "grobid", "marker", "pdffigures2"],
+      "warnings": [],
+      "section_count": 33,
+      "reference_count": 38,
+      "figure_count": 16,
+      "table_count": 3
+    }
+  },
+  "meta": {
+    "request_id": "req_local"
+  }
+}
+```
+
+Raw Markdown:
+
+```http
+GET /api/jobs/job_123/markdown?raw=true
+```
+
+Returns `text/markdown; charset=utf-8` with the Markdown body directly.
+
+Errors:
+
+- `404 job_not_found`
+- `409 markdown_not_ready`: canonical Markdown is not written yet.
 
 ### GET /api/jobs/{job_id}/issues
 
